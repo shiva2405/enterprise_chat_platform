@@ -32,9 +32,11 @@ public class User {
     private UserRole role;
     
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
     
     @Column(nullable = false)
+    @Builder.Default
     private boolean available = false;
     
     private LocalDateTime createdAt;

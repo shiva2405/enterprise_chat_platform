@@ -34,9 +34,11 @@ com/enterprise/chat/service/ChatService.class
 com/enterprise/chat/dto/ChatSessionDTO.class
 com/enterprise/chat/model/User$UserBuilder.class
 com/enterprise/chat/service/AgentService.class
+com/enterprise/chat/service/BotService$BotReplyResult.class
 com/enterprise/chat/model/ChatMessage$ChatMessageBuilder.class
 com/enterprise/chat/repository/ChatSessionRepository.class
 com/enterprise/chat/controller/ChatController.class
 com/enterprise/chat/model/UserRole.class
+com/enterprise/chat/service/BotService.class
 com/enterprise/chat/websocket/ChatWebSocketController.class
 com/enterprise/chat/model/ChatSession.class

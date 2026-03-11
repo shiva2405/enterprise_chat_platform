@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { LoginResponse, ChatSession, ChatMessage, User, CustomerInfo } from '../types';
+import { LoginResponse, ChatSession, ChatMessage, User } from '../types';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
@@ -39,13 +39,20 @@ export const authApi = {
   },
 };
 
+export interface BotReplyResult {
+  customerMessage: ChatMessage;
+  botReplies: ChatMessage[];
+  status: string;
+  botStep: string;
+}
+
 export const chatApi = {
-  initializeChat: async (sessionId: string): Promise<ChatSession> => {
-    const response = await api.post('/chat/init', { sessionId });
+  startChat: async (sessionId: string): Promise<ChatMessage[]> => {
+    const response = await api.post('/chat/start', { sessionId });
     return response.data;
   },
-  submitCustomerInfo: async (info: CustomerInfo): Promise<ChatSession> => {
-    const response = await api.post('/chat/submit-info', info);
+  botReply: async (sessionId: string, message: string): Promise<BotReplyResult> => {
+    const response = await api.post('/chat/bot-reply', { sessionId, message });
     return response.data;
   },
   getSession: async (sessionId: string): Promise<ChatSession> => {

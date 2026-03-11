@@ -35,6 +35,16 @@ public class ChatSession {
     @Column(nullable = false)
     private ChatStatus status;
     
+    @Column(nullable = false)
+    @Builder.Default
+    private String botStep = "GREETING";
+    
+    private String customerName;
+    
+    private String customerEmail;
+    
+    private String customerPhone;
+    
     @OneToMany(mappedBy = "chatSession", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @Builder.Default
     private List<ChatMessage> messages = new ArrayList<>();

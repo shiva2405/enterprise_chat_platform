@@ -2,6 +2,7 @@
 /Users/MAC/siva_git/enterprise_chat_platform/backend/src/main/java/com/enterprise/chat/controller/ChatController.java
 /Users/MAC/siva_git/enterprise_chat_platform/backend/src/main/java/com/enterprise/chat/config/DataInitializer.java
 /Users/MAC/siva_git/enterprise_chat_platform/backend/src/main/java/com/enterprise/chat/repository/UserRepository.java
+/Users/MAC/siva_git/enterprise_chat_platform/backend/src/main/java/com/enterprise/chat/service/BotService.java
 /Users/MAC/siva_git/enterprise_chat_platform/backend/src/main/java/com/enterprise/chat/repository/ChatMessageRepository.java
 /Users/MAC/siva_git/enterprise_chat_platform/backend/src/main/java/com/enterprise/chat/dto/ChatSessionDTO.java
 /Users/MAC/siva_git/enterprise_chat_platform/backend/src/main/java/com/enterprise/chat/dto/LoginResponse.java

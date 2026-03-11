@@ -2,11 +2,9 @@ package com.enterprise.chat.service;
 
 import com.enterprise.chat.dto.ChatMessageDTO;
 import com.enterprise.chat.dto.ChatSessionDTO;
-import com.enterprise.chat.dto.CustomerInfoRequest;
 import com.enterprise.chat.model.*;
 import com.enterprise.chat.repository.ChatMessageRepository;
 import com.enterprise.chat.repository.ChatSessionRepository;
-import com.enterprise.chat.repository.CustomerRepository;
 import com.enterprise.chat.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,48 +21,9 @@ import java.util.stream.Collectors;
 public class ChatService {
     
     private final ChatSessionRepository chatSessionRepository;
-    private final CustomerRepository customerRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    
-    public ChatSessionDTO initializeChat(String sessionId) {
-        ChatSession session = ChatSession.builder()
-                .sessionId(sessionId)
-                .status(ChatStatus.BOT_INTERACTION)
-                .build();
-        ChatSession savedSession = chatSessionRepository.save(session);
-        return ChatSessionDTO.fromEntity(savedSession);
-    }
-    
-    @Transactional
-    public ChatSessionDTO submitCustomerInfo(CustomerInfoRequest request) {
-        ChatSession session = chatSessionRepository.findBySessionId(request.getSessionId())
-                .orElseGet(() -> {
-                    ChatSession newSession = ChatSession.builder()
-                            .sessionId(request.getSessionId())
-                            .status(ChatStatus.BOT_INTERACTION)
-                            .build();
-                    return chatSessionRepository.save(newSession);
-                });
-        
-        Customer customer = Customer.builder()
-                .name(request.getName())
-                .email(request.getEmail())
-                .phone(request.getPhone())
-                .problem(request.getProblem())
-                .sessionId(request.getSessionId())
-                .build();
-        Customer savedCustomer = customerRepository.save(customer);
-        
-        session.setCustomer(savedCustomer);
-        session.setStatus(ChatStatus.WAITING_FOR_AGENT);
-        ChatSession savedSession = chatSessionRepository.save(session);
-        
-        notifyAgentsOfNewChat(savedSession);
-        
-        return ChatSessionDTO.fromEntity(savedSession);
-    }
     
     public ChatSessionDTO getSessionBySessionId(String sessionId) {
         ChatSession session = chatSessionRepository.findBySessionId(sessionId)

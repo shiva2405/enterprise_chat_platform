@@ -18,6 +18,7 @@ public class ChatSessionDTO {
     private String customerPhone;
     private String problem;
     private ChatStatus status;
+    private String botStep;
     private Long agentId;
     private String agentName;
     private LocalDateTime createdAt;
@@ -33,6 +34,7 @@ public class ChatSessionDTO {
                 .customerPhone(session.getCustomer() != null ? session.getCustomer().getPhone() : null)
                 .problem(session.getCustomer() != null ? session.getCustomer().getProblem() : null)
                 .status(session.getStatus())
+                .botStep(session.getBotStep())
                 .agentId(session.getAgent() != null ? session.getAgent().getId() : null)
                 .agentName(session.getAgent() != null ? session.getAgent().getFullName() : null)
                 .createdAt(session.getCreatedAt())
