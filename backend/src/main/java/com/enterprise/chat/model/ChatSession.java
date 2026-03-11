@@ -45,6 +45,13 @@ public class ChatSession {
     
     private String customerPhone;
     
+    @Column(columnDefinition = "TEXT")
+    private String customerProblem;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean inOllamaMode = false;
+    
     @OneToMany(mappedBy = "chatSession", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @Builder.Default
     private List<ChatMessage> messages = new ArrayList<>();

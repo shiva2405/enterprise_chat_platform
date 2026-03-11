@@ -26,9 +26,11 @@ public class BotService {
     private final ChatMessageRepository chatMessageRepository;
     private final CustomerRepository customerRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final OllamaService ollamaService;
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^[\\d\\s\\-+()]{8,}$");
+    private static final String AGENT_KEYWORD = "AGENT";
 
     @Transactional
     public List<ChatMessageDTO> startConversation(String sessionId) {
@@ -49,7 +51,7 @@ public class BotService {
         }
 
         List<ChatMessageDTO> replies = new ArrayList<>();
-        replies.add(saveBotMessage(session, "Welcome to Enterprise Support! I'm here to help connect you with one of our agents."));
+        replies.add(saveBotMessage(session, "Welcome to Enterprise Support! I'm an AI assistant here to help you."));
         replies.add(saveBotMessage(session, "May I know your name please?"));
 
         session.setBotStep("ASK_NAME");
@@ -68,6 +70,16 @@ public class BotService {
         List<ChatMessageDTO> botReplies = new ArrayList<>();
         String currentStep = session.getBotStep();
         String trimmedInput = userInput.trim();
+
+        // Check if customer wants to talk to an agent
+        if (trimmedInput.equalsIgnoreCase(AGENT_KEYWORD)) {
+            return handleAgentRequest(session, customerMsg, botReplies);
+        }
+
+        // Handle Ollama mode - continuous conversation with bot
+        if (session.isInOllamaMode()) {
+            return handleOllamaConversation(session, customerMsg, trimmedInput, botReplies);
+        }
 
         switch (currentStep) {
             case "ASK_NAME" -> {
@@ -92,37 +104,14 @@ public class BotService {
                 if (!PHONE_PATTERN.matcher(trimmedInput).matches()) {
                     botReplies.add(saveBotMessage(session, "Please enter a valid phone number."));
                 } else {
-                    session.setBotStep("ASK_PROBLEM");
+                    session.setBotStep("OLLAMA_CHAT");
                     session.setCustomerPhone(trimmedInput);
-                    botReplies.add(saveBotMessage(session, "Perfect! Now, please describe your issue or question in detail."));
+                    session.setInOllamaMode(true);
+                    botReplies.add(saveBotMessage(session, "Perfect! I'm now ready to help you. Please describe your issue or ask any question. Type 'AGENT' at any time if you want to speak with a human agent."));
                 }
             }
-            case "ASK_PROBLEM" -> {
-                if (trimmedInput.length() < 10) {
-                    botReplies.add(saveBotMessage(session, "Please provide more details about your issue (at least 10 characters)."));
-                } else {
-                    session.setBotStep("COMPLETED");
-                    botReplies.add(saveBotMessage(session, "Thank you for providing your information. Connecting you with an available agent..."));
-
-                    Customer customer = Customer.builder()
-                            .name(session.getCustomerName())
-                            .email(session.getCustomerEmail())
-                            .phone(session.getCustomerPhone())
-                            .problem(trimmedInput)
-                            .sessionId(sessionId)
-                            .build();
-                    Customer savedCustomer = customerRepository.save(customer);
-
-                    session.setCustomer(savedCustomer);
-                    session.setStatus(ChatStatus.WAITING_FOR_AGENT);
-
-                    botReplies.add(saveBotMessage(session, "Please wait while we connect you with an agent. This usually takes less than a minute."));
-
-                    chatSessionRepository.save(session);
-                    notifyAgentsOfNewChat(session);
-
-                    return new BotReplyResult(customerMsg, botReplies, session.getStatus().name(), session.getBotStep());
-                }
+            case "OLLAMA_CHAT" -> {
+                return handleOllamaConversation(session, customerMsg, trimmedInput, botReplies);
             }
             default -> {
                 botReplies.add(saveBotMessage(session, "I'm sorry, I didn't understand. Please wait for an agent."));
@@ -131,6 +120,70 @@ public class BotService {
 
         chatSessionRepository.save(session);
         return new BotReplyResult(customerMsg, botReplies, session.getStatus().name(), session.getBotStep());
+    }
+
+    private BotReplyResult handleOllamaConversation(ChatSession session, ChatMessageDTO customerMsg, 
+                                                     String userInput, List<ChatMessageDTO> botReplies) {
+        // Build customer context
+        String customerContext = String.format("Name: %s, Email: %s, Phone: %s",
+                session.getCustomerName(), session.getCustomerEmail(), session.getCustomerPhone());
+
+        // Get conversation history for context
+        List<String> conversationHistory = getConversationHistory(session);
+
+        // Generate Ollama response with RAG
+        String ollamaResponse = ollamaService.generateResponse(userInput, customerContext, conversationHistory);
+        botReplies.add(saveBotMessage(session, ollamaResponse));
+
+        // Store the problem description if this is the first message
+        if (session.getCustomerProblem() == null || session.getCustomerProblem().isEmpty()) {
+            session.setCustomerProblem(userInput);
+        }
+
+        chatSessionRepository.save(session);
+        return new BotReplyResult(customerMsg, botReplies, session.getStatus().name(), session.getBotStep());
+    }
+
+    private BotReplyResult handleAgentRequest(ChatSession session, ChatMessageDTO customerMsg, 
+                                               List<ChatMessageDTO> botReplies) {
+        log.info("Customer {} requested to talk to an agent", session.getSessionId());
+
+        botReplies.add(saveBotMessage(session, "I'll connect you with a human agent now. Please wait..."));
+
+        // Create customer record if not exists
+        if (session.getCustomer() == null && session.getCustomerName() != null) {
+            Customer customer = Customer.builder()
+                    .name(session.getCustomerName())
+                    .email(session.getCustomerEmail() != null ? session.getCustomerEmail() : "")
+                    .phone(session.getCustomerPhone() != null ? session.getCustomerPhone() : "")
+                    .problem(session.getCustomerProblem() != null ? session.getCustomerProblem() : "Customer requested agent")
+                    .sessionId(session.getSessionId())
+                    .build();
+            Customer savedCustomer = customerRepository.save(customer);
+            session.setCustomer(savedCustomer);
+        }
+
+        session.setBotStep("COMPLETED");
+        session.setInOllamaMode(false);
+        session.setStatus(ChatStatus.WAITING_FOR_AGENT);
+
+        botReplies.add(saveBotMessage(session, "You are now in the queue. An agent will be with you shortly."));
+
+        chatSessionRepository.save(session);
+        notifyAgentsOfNewChat(session);
+
+        return new BotReplyResult(customerMsg, botReplies, session.getStatus().name(), session.getBotStep());
+    }
+
+    private List<String> getConversationHistory(ChatSession session) {
+        List<ChatMessage> messages = session.getMessages();
+        // Get last 10 messages for context
+        int startIndex = Math.max(0, messages.size() - 10);
+        return messages.subList(startIndex, messages.size()).stream()
+                .map(msg -> String.format("%s: %s", 
+                        msg.getSenderType() == SenderType.CUSTOMER ? "Customer" : "Bot",
+                        msg.getContent()))
+                .collect(Collectors.toList());
     }
 
     private ChatMessageDTO saveBotMessage(ChatSession session, String content) {
